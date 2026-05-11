@@ -1,0 +1,282 @@
+-- FIFA 21 Term Project: Queries, Views, and Security Configuration
+-- Database: term_project_giovanni_steva
+
+USE term_project_giovanni_steva;
+
+-- ============================================================
+-- SECTION 1: QUERIES - TOP 30 ROWS FROM EACH TABLE
+-- ============================================================
+
+-- Query 1: Top 30 Players by Overall Rating
+SELECT 
+    PlayerID,
+    Name,
+    Age,
+    Nationality,
+    Overall,
+    Potential,
+    Hits
+FROM Player
+ORDER BY Overall DESC, Hits DESC
+LIMIT 30;
+
+-- Query 2: Top 30 Positions
+SELECT 
+    PositionID,
+    PositionName,
+    PositionCategory
+FROM Positions
+ORDER BY PositionID
+LIMIT 30;
+
+-- Query 3: Top 30 Teams by Team ID
+SELECT 
+    TeamID,
+    TeamName,
+    Country,
+    League
+FROM Team
+ORDER BY TeamID
+LIMIT 30;
+
+-- Query 4: Top 30 Player-Position Associations
+SELECT 
+    PlayerID,
+    PositionID
+FROM PlayerPositions
+ORDER BY PlayerID
+LIMIT 30;
+
+-- Query 5: Top 30 Player-Team Associations
+SELECT 
+    PlayerTeamID,
+    PlayerID,
+    TeamID,
+    StartYear,
+    EndYear
+FROM PlayerTeam
+ORDER BY PlayerTeamID
+LIMIT 30;
+
+
+-- ============================================================
+-- SECTION 2: JOIN QUERY - TOP 30 ROWS FROM RELATED TABLES
+-- ============================================================
+
+-- Join Query: Player Details with Their Teams (Top 30)
+-- This joins Player table with Team information via PlayerTeam junction table
+SELECT
+    p.PlayerID,
+    p.Name AS PlayerName,
+    p.Age,
+    p.Nationality,
+    p.Overall,
+    p.Potential,
+    t.TeamName,
+    t.Country AS TeamCountry,
+    t.League,
+    pt.StartYear,
+    pt.EndYear
+FROM Player p
+INNER JOIN PlayerTeam pt ON p.PlayerID = pt.PlayerID
+INNER JOIN Team t ON pt.TeamID = t.TeamID
+ORDER BY p.Overall DESC, p.Hits DESC
+LIMIT 30;
+
+
+-- ============================================================
+-- SECTION 3: AGGREGATE FUNCTIONS - DATASET SUMMARY
+-- ============================================================
+
+-- Aggregate Query 1: Player Statistics Summary
+-- Calculates count, average, min, and max overall ratings
+SELECT 
+    COUNT(*) AS TotalPlayers,
+    AVG(Overall) AS AverageOverallRating,
+    MIN(Overall) AS LowestOverallRating,
+    MAX(Overall) AS HighestOverallRating,
+    AVG(Age) AS AveragePlayerAge,
+    MIN(Age) AS YoungestPlayer,
+    MAX(Age) AS OldestPlayer,
+    SUM(Hits) AS TotalHits
+FROM Player;
+
+-- Aggregate Query 2: Players per Nationality (Top 10)
+-- Summarizes player count and average rating by nationality
+SELECT
+    Nationality,
+    COUNT(*) AS PlayerCount,
+    AVG(Overall) AS AverageOverallRating,
+    MAX(Overall) AS TopPlayerRating,
+    AVG(Age) AS AverageAge
+FROM Player
+GROUP BY Nationality
+ORDER BY PlayerCount DESC, AverageOverallRating DESC
+LIMIT 10;
+
+-- Aggregate Query 3: Teams with Player Statistics
+-- Shows count of players per team and their average rating
+SELECT 
+    t.TeamName,
+    t.League,
+    COUNT(DISTINCT p.PlayerID) AS PlayerCount,
+    AVG(p.Overall) AS AverageTeamOverall,
+    MAX(p.Overall) AS TopPlayerOverall,
+    MIN(p.Overall) AS LowestPlayerOverall
+FROM Team t
+LEFT JOIN PlayerTeam pt ON t.TeamID = pt.TeamID
+LEFT JOIN Player p ON pt.PlayerID = p.PlayerID
+GROUP BY t.TeamID, t.TeamName, t.League
+HAVING COUNT(DISTINCT p.PlayerID) > 0
+ORDER BY PlayerCount DESC, AverageTeamOverall DESC;
+
+-- Aggregate Query 4: Positions with Player Coverage
+-- Shows how many players play each position
+SELECT 
+    pos.PositionName,
+    pos.PositionCategory,
+    COUNT(DISTINCT pp.PlayerID) AS PlayerCount,
+    AVG(p.Overall) AS AverageOverall
+FROM Positions pos
+LEFT JOIN PlayerPositions pp ON pos.PositionID = pp.PositionID
+LEFT JOIN Player p ON pp.PlayerID = p.PlayerID
+GROUP BY pos.PositionID, pos.PositionName, pos.PositionCategory
+ORDER BY PlayerCount DESC;
+
+
+-- ============================================================
+-- SECTION 4: VIEW - USEFUL INFORMATION ABOUT DATASET
+-- ============================================================
+
+-- View 1: Comprehensive Player Profile View
+-- Provides detailed information about each player, their teams, and positions
+CREATE OR REPLACE VIEW vw_PlayerProfiles AS
+SELECT 
+    p.PlayerID,
+    p.Name AS PlayerName,
+    p.Age,
+    p.Nationality,
+    p.Overall,
+    p.Potential,
+    p.Hits,
+    GROUP_CONCAT(DISTINCT t.TeamName SEPARATOR ', ') AS Teams,
+    GROUP_CONCAT(DISTINCT pos.PositionName SEPARATOR ', ') AS Positions,
+    GROUP_CONCAT(DISTINCT t.League SEPARATOR ', ') AS Leagues
+FROM Player p
+LEFT JOIN PlayerTeam pt ON p.PlayerID = pt.PlayerID
+LEFT JOIN Team t ON pt.TeamID = t.TeamID
+LEFT JOIN PlayerPositions pp ON p.PlayerID = pp.PlayerID
+LEFT JOIN Positions pos ON pp.PositionID = pos.PositionID
+GROUP BY p.PlayerID;
+
+-- View 2: Elite Players View
+-- Shows top-rated players with their team and potential information
+CREATE OR REPLACE VIEW vw_ElitePlayers AS
+SELECT 
+    p.PlayerID,
+    p.Name,
+    p.Age,
+    p.Overall,
+    p.Potential,
+    (p.Potential - p.Overall) AS GrowthPotential,
+    CASE 
+        WHEN p.Overall >= 90 THEN 'World Class'
+        WHEN p.Overall >= 85 THEN 'Elite'
+        WHEN p.Overall >= 80 THEN 'Very Good'
+        ELSE 'Good'
+    END AS PlayerTier,
+    t.TeamName,
+    t.League,
+    p.Hits
+FROM Player p
+LEFT JOIN PlayerTeam pt ON p.PlayerID = pt.PlayerID
+LEFT JOIN Team t ON pt.TeamID = t.TeamID
+WHERE p.Overall >= 85;
+
+-- View 3: Team Roster Summary View
+-- Provides overview of each team's roster quality
+CREATE OR REPLACE VIEW vw_TeamRosterSummary AS
+SELECT 
+    t.TeamID,
+    t.TeamName,
+    t.Country,
+    t.League,
+    COUNT(DISTINCT p.PlayerID) AS RosterSize,
+    AVG(p.Overall) AS AverageOverall,
+    MAX(p.Overall) AS TopPlayerOverall,
+    MIN(p.Overall) AS LowestPlayerOverall,
+    SUM(p.Hits) AS TotalTeamHits
+FROM Team t
+LEFT JOIN PlayerTeam pt ON t.TeamID = pt.TeamID
+LEFT JOIN Player p ON pt.PlayerID = p.PlayerID
+GROUP BY t.TeamID, t.TeamName, t.Country, t.League;
+
+-- View 4: Player Performance Analysis View
+-- Analyzes player performance metrics
+CREATE OR REPLACE VIEW vw_PlayerPerformance AS
+SELECT 
+    p.PlayerID,
+    p.Name,
+    p.Overall,
+    p.Age,
+    CASE 
+        WHEN p.Age < 24 THEN 'Young Prospect'
+        WHEN p.Age < 30 THEN 'Prime'
+        ELSE 'Veteran'
+    END AS AgeCategory,
+    CASE 
+        WHEN p.Hits > 150 THEN 'Very High Demand'
+        WHEN p.Hits > 100 THEN 'High Demand'
+        WHEN p.Hits > 50 THEN 'Moderate Demand'
+        ELSE 'Low Demand'
+    END AS DemandLevel,
+    p.Hits,
+    p.Nationality
+FROM Player p
+WHERE p.Overall >= 85;
+
+
+-- ============================================================
+-- SECTION 5: SECURITY - ROLE AND USER MANAGEMENT
+-- ============================================================
+
+-- Create a read-only role for analysts (SELECT only, no DML/DDL)
+-- Note: Syntax for MariaDB/MySQL
+CREATE ROLE DataAnalystRole;
+
+GRANT SELECT ON term_project_giovanni_steva.Player TO DataAnalystRole;
+GRANT SELECT ON term_project_giovanni_steva.Team TO DataAnalystRole;
+GRANT SELECT ON term_project_giovanni_steva.Positions TO DataAnalystRole;
+GRANT SELECT ON term_project_giovanni_steva.PlayerTeam TO DataAnalystRole;
+GRANT SELECT ON term_project_giovanni_steva.PlayerPositions TO DataAnalystRole;
+GRANT SELECT ON term_project_giovanni_steva.vw_PlayerProfiles TO DataAnalystRole;
+GRANT SELECT ON term_project_giovanni_steva.vw_ElitePlayers TO DataAnalystRole;
+GRANT SELECT ON term_project_giovanni_steva.vw_TeamRosterSummary TO DataAnalystRole;
+GRANT SELECT ON term_project_giovanni_steva.vw_PlayerPerformance TO DataAnalystRole;
+
+-- Create users ONCE
+CREATE USER 'analyst_user1'@'localhost' IDENTIFIED BY 'SecurePassword123!';
+CREATE USER 'analyst_user2'@'localhost' IDENTIFIED BY 'SecurePassword456!';
+CREATE USER 'analyst_user3'@'localhost' IDENTIFIED BY 'SecurePassword789!';
+
+-- Assign role (correct syntax)
+GRANT DataAnalystRole TO 'analyst_user1'@'localhost';
+GRANT DataAnalystRole TO 'analyst_user2'@'localhost';
+GRANT DataAnalystRole TO 'analyst_user3'@'localhost';
+
+FLUSH PRIVILEGES;
+-- Create sample users for data analysis
+-- User 1: AnalystUser1
+-- Verify role membership (run this to check which users have the DataAnalystRole)
+-- SELECT User, Host, Select_priv FROM mysql.user WHERE User LIKE 'analyst_user%';
+
+-- Test queries to verify access (these should work for DataAnalystRole members)
+-- SELECT * FROM Player LIMIT 5;
+-- SELECT * FROM vw_ElitePlayers LIMIT 5;
+-- SELECT * FROM vw_TeamRosterSummary LIMIT 10;
+
+-- The following would be DENIED for DataAnalystRole members (they will receive permission errors):
+-- INSERT INTO Player VALUES (999999, 'Test Player', 25, 'Test', 80, 85, 100);
+-- UPDATE Player SET Overall = 99 WHERE PlayerID = 158023;
+-- DELETE FROM Player WHERE PlayerID = 158023;
+-- CREATE TABLE NewTable (ID INT);
