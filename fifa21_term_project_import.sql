@@ -1,12 +1,11 @@
-﻿-- File: fifa21_term_project_import.sql
-USE term_project_giovanni_steva;
+﻿USE term_project_giovanni_steva;
 
 /* NOTE: The full dataset was imported using the 'import_fifa_data.py' script.
 The script processed 17,981 rows from the FIFA-21 Complete.csv file.
 Below is a sample of the top players imported into the schema.
 */
 
--- Sample Player Data
+
 INSERT IGNORE INTO Player (PlayerID, Name, Age, Nationality, Overall, Potential, Hits) VALUES 
 (158023, 'Lionel Messi', 33, 'Argentina', 94, 94, 299),
 (20801, 'Cristiano Ronaldo', 35, 'Portugal', 93, 93, 276),
@@ -16,4 +15,3 @@ INSERT IGNORE INTO Player (PlayerID, Name, Age, Nationality, Overall, Potential,
 (192985, 'Kevin De Bruyne', 29, 'Belgium', 91, 91, 119),
 (188545, 'Robert Lewandowski', 31, 'Poland', 91, 91, 89);
 
--- [Remaining 17,000+ rows handled by Python Script]
