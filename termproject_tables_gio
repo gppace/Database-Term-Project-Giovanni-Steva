@@ -1,4 +1,4 @@
--- File: create-db-template.sql
+-- File: TermProjectDatabaseGioSteva
 CREATE DATABASE IF NOT EXISTS term_project_giovanni_steva
     DEFAULT CHARACTER SET = 'utf8mb4';
 
@@ -44,7 +44,7 @@ CREATE TABLE PlayerTeam (
     PlayerTeamID INT AUTO_INCREMENT PRIMARY KEY,
     PlayerID INT,
     TeamID INT,
-    StartYear INT, -- Using INT for better Python compatibility
+    StartYear INT, 
     EndYear INT,
     FOREIGN KEY (PlayerID) REFERENCES Player(PlayerID) ON DELETE CASCADE,
     FOREIGN KEY (TeamID) REFERENCES Team(TeamID) ON DELETE CASCADE
